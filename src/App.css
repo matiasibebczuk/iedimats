@@ -1,0 +1,259 @@
+/* ===== GLOBAL APP ===== */
+
+.app-container {
+  padding: 24px;
+}
+
+/* ===== SCREEN ===== */
+
+.screen-center {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== TITLE ===== */
+
+.title-main {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: #f9fafb;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* ===== GROUP BUTTONS ===== */
+
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.group-button {
+  background: #1f2937;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #374151;
+  font-weight: 500;
+  color: #e5e7eb;
+  transition: all 0.2s ease;
+}
+
+.group-button:hover {
+  background: #374151;
+  transform: translateY(-2px);
+}
+
+/* ===== HEADER ===== */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.back-btn {
+  background: #1f2937;
+  border: 1px solid #374151;
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: #e5e7eb;
+  cursor: pointer;
+}
+
+.back-btn:hover {
+  background: #374151;
+}
+
+/* ===== BOARD ===== */
+
+.board {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+}
+
+/* ===== COLUMN ===== */
+
+.column {
+  background: #111827;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid #374151;
+  min-width: 260px;
+}
+
+.column h2 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* ===== INPUT ===== */
+
+.input-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.input-row input {
+  flex: 1;
+  background: #1f2937;
+  border: 1px solid #374151;
+  padding: 8px;
+  border-radius: 8px;
+  color: #e5e7eb;
+}
+
+.input-row input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.input-row button {
+  background: #6366f1;
+  color: white;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.input-row button:hover {
+  background: #4f46e5;
+}
+
+/* ===== LIST ===== */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ===== CARD ===== */
+
+.material-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  background: #1f2937;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #374151;
+
+  transition: all 0.15s ease;
+}
+
+.material-card:hover {
+  background: #374151;
+}
+
+/* ===== DRAG AREA ===== */
+
+.drag-area {
+  width: 10px;
+  height: 10px;
+  cursor: grab;
+}
+
+/* ===== CHECK ===== */
+
+.check {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid #6b7280;
+  cursor: pointer;
+}
+
+.check.done {
+  background: #22c55e;
+  border: none;
+}
+
+/* ===== POPUP BACKDROP ===== */
+
+.popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+  z-index: 1000;
+}
+
+/* ===== POPUP ===== */
+
+.popup {
+  width: 100%;
+  max-width: 420px;
+
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 16px;
+
+  padding: 18px;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ===== POPUP TITLE ===== */
+
+.popup h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ===== NOTE AREA ===== */
+
+.note-area {
+  width: 100%;
+  min-height: 160px;
+
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 10px;
+
+  padding: 10px;
+  box-sizing: border-box;
+
+  color: #e5e7eb;
+  font-size: 14px;
+
+  resize: none;
+}
+
+.note-area:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+/* ===== DESKTOP ===== */
+
+@media (min-width: 768px) {
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    overflow-x: hidden;
+  }
+}
