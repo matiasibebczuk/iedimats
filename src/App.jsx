@@ -44,24 +44,21 @@ function groupMaterials(materials) {
 
 function DraggableItem({ material, toggle, setSelectedMaterial, isGrouped }) {
 
-  // 👉 MODO TODOS (SIN DRAG)
   if (isGrouped) {
     return (
       <div className="material-card">
         <span onClick={() => setSelectedMaterial(material)}>
           {material.title}
-
-          {material.count && material.count > 1 ? (
+          {material.count > 1 && (
             <span style={{ marginLeft: 6, color: '#9ca3af' }}>
               x{material.count}
             </span>
-          ) : null}
+          )}
         </span>
       </div>
     )
   }
 
-  // 👉 MODO NORMAL (CON DRAG)
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: material.id
   })
@@ -157,6 +154,7 @@ function App() {
 
   const [selectedMaterial, setSelectedMaterial] = useState(null)
   const [note, setNote] = useState('')
+  const [editTitle, setEditTitle] = useState('')
 
   useEffect(() => {
     fetchMaterials()
@@ -195,6 +193,7 @@ function App() {
   useEffect(() => {
     if (selectedMaterial) {
       setNote(selectedMaterial.note || '')
+      setEditTitle(selectedMaterial.title || '')
     }
   }, [selectedMaterial])
 
@@ -203,13 +202,29 @@ function App() {
     setMaterials(data || [])
   }
 
-  async function saveNote() {
+  async function saveChanges() {
     if (!selectedMaterial) return
 
     await supabase
       .from('materials')
-      .update({ note })
+      .update({
+        note,
+        title: editTitle
+      })
       .eq('id', selectedMaterial.id)
+  }
+
+  async function deleteMaterial() {
+    if (!selectedMaterial) return
+
+    if (!window.confirm("¿Eliminar este material?")) return
+
+    await supabase
+      .from('materials')
+      .delete()
+      .eq('id', selectedMaterial.id)
+
+    setSelectedMaterial(null)
   }
 
   async function addMaterial(type) {
@@ -266,7 +281,6 @@ function App() {
         <h1 className="title-main">Elegí un grupo</h1>
 
         <div className="group-grid">
-
           {GROUPS.map(g => (
             <button
               key={g}
@@ -283,9 +297,7 @@ function App() {
           >
             Todos
           </button>
-
         </div>
-
       </div>
     )
   }
@@ -305,7 +317,6 @@ function App() {
 
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div className="board">
-
           {TYPES.map(type => (
             <Column
               key={type}
@@ -323,7 +334,6 @@ function App() {
               }
             />
           ))}
-
         </div>
       </DndContext>
 
@@ -341,22 +351,45 @@ function App() {
         </button>
       </div>
 
+      {/* ===== POPUP ===== */}
+
       {selectedMaterial && (
         <div
           className="popup-backdrop"
           onClick={() => {
-            saveNote()
+            saveChanges()
             setSelectedMaterial(null)
           }}
         >
           <div className="popup" onClick={(e) => e.stopPropagation()}>
-            <h3>{selectedMaterial.title}</h3>
 
+            {/* EDITAR TITULO */}
+            <input
+              className="note-area"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+            />
+
+            {/* NOTA */}
             <textarea
               className="note-area"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
+
+            {/* DELETE */}
+            <button
+              onClick={deleteMaterial}
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                padding: '8px',
+                borderRadius: '8px'
+              }}
+            >
+              Eliminar
+            </button>
+
           </div>
         </div>
       )}
