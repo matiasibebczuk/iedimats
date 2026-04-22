@@ -268,3 +268,23 @@
 .todos-button:hover {
   background: #4f46e5;
 }
+
+/* ===== GRID ===== */
+
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+/* ===== TODOS PRO ===== */
+
+.todos-button-pro {
+  grid-column: span 2;
+  background: #6366f1;
+  font-weight: 600;
+}
+
+.todos-button-pro:hover {
+  background: #4f46e5;
+}
