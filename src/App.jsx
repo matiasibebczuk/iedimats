@@ -12,7 +12,6 @@ import {
 const TYPES = ['geshuer', 'hacer', 'conseguir']
 
 const GROUPS = [
-  "Todos",
   "Recibimiento",
   "Eventos",
   "Nesha",
@@ -261,6 +260,17 @@ function App() {
             </button>
           ))}
         </div>
+
+        {/* 🔥 BOTÓN TODOS ABAJO */}
+        <div style={{ marginTop: 14, width: '100%', maxWidth: 400 }}>
+          <button
+            onClick={() => setSelectedGroup("Todos")}
+            className="group-button todos-button"
+          >
+            Todos
+          </button>
+        </div>
+
       </div>
     )
   }
