@@ -257,3 +257,14 @@
     overflow-x: hidden;
   }
 }
+
+.todos-button {
+  width: 100%;
+  font-weight: 600;
+  background: #6366f1;
+  border: none;
+}
+
+.todos-button:hover {
+  background: #4f46e5;
+}
