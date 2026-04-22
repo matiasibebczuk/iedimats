@@ -369,17 +369,27 @@ function App() {
     }, 5000)
   }
 
-  async function addMaterial(type) {
-    if (!inputs[type].trim()) return
-    await supabase.from('materials').insert({
-      title: inputs[type].trim(),
-      group_name: selectedGroup === 'Todos' ? 'Sin grupo' : selectedGroup,
-      type,
-      tags: [],
-    })
-    setInputs((prev) => ({ ...prev, [type]: '' }))
-    addToast('Material agregado', 'success')
+async function addMaterial(type) {
+  if (!inputs[type].trim()) return
+
+  const { error } = await supabase.from('materials').insert({
+    title: inputs[type].trim(),
+    group_name: selectedGroup === 'Todos' ? 'Sin grupo' : selectedGroup,
+    type,
+    completed: false,
+    note: '',
+    tags: []
+  })
+
+  if (error) {
+    console.error("INSERT ERROR:", error)
+    addToast('Error al agregar material', 'error')
+    return
   }
+
+  setInputs((prev) => ({ ...prev, [type]: '' }))
+  addToast('Material agregado', 'success')
+}
 
   async function toggle(material) {
     await supabase
