@@ -18,7 +18,8 @@ const GROUPS = [
   "Jolma",
   "Leitza",
   "Nitza",
-  "Jokrim"
+  "Jokrim", 
+  "Ietzira"
 ]
 
 /* ===== DRAG ITEM ===== */
