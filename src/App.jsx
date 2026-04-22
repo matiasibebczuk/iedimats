@@ -23,7 +23,7 @@ const GROUPS = [
   "Ietzira"
 ]
 
-/* ===== AGRUPAR ===== */
+/* ===== AGRUPAR. ===== */
 
 function groupMaterials(materials) {
   const map = {}
