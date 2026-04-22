@@ -22,7 +22,7 @@ const GROUPS = [
   "Ietzira"
 ]
 
-/* ===== AGRUPAR ===== */
+/* ===== AGRUPAR (solo visual) ===== */
 
 function groupMaterials(materials) {
   const map = {}
@@ -43,22 +43,6 @@ function groupMaterials(materials) {
 /* ===== ITEM ===== */
 
 function DraggableItem({ material, toggle, setSelectedMaterial, isGrouped }) {
-
-  if (isGrouped) {
-    return (
-      <div className="material-card">
-        <span onClick={() => setSelectedMaterial(material)}>
-          {material.title}
-          {material.count && material.count > 1 && (
-            <span style={{ marginLeft: 6, color: '#9ca3af' }}>
-              x{material.count}
-            </span>
-          )}
-        </span>
-      </div>
-    )
-  }
-
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: material.id
   })
@@ -74,14 +58,26 @@ function DraggableItem({ material, toggle, setSelectedMaterial, isGrouped }) {
 
       <span onClick={() => setSelectedMaterial(material)}>
         {material.title}
+
+        {/* SOLO VISUAL */}
+        {isGrouped && material.count > 1 && (
+          <span style={{ marginLeft: 6, color: '#9ca3af' }}>
+            x{material.count}
+          </span>
+        )}
       </span>
 
-      <div
-        onClick={() => toggle(material)}
-        className={`check ${material.completed ? 'done' : ''}`}
-      />
+      {!isGrouped && (
+        <div
+          onClick={() => toggle(material)}
+          className={`check ${material.completed ? 'done' : ''}`}
+        />
+      )}
 
-      <div {...listeners} {...attributes} className="drag-area" />
+      {!isGrouped && (
+        <div {...listeners} {...attributes} className="drag-area" />
+      )}
+
     </div>
   )
 }
@@ -102,8 +98,10 @@ function Column({
 
   let filtered = materials.filter(m => m.type === type)
 
+  let displayList = filtered
+
   if (selectedGroup === "Todos") {
-    filtered = groupMaterials(filtered)
+    displayList = groupMaterials(filtered)
   }
 
   return (
@@ -126,7 +124,7 @@ function Column({
       </div>
 
       <div className="list">
-        {filtered.map(m => (
+        {displayList.map(m => (
           <DraggableItem
             key={m.id}
             material={m}
@@ -247,8 +245,6 @@ function App() {
   }
 
   async function handleDragEnd(event) {
-    if (selectedGroup === "Todos") return
-
     const { active, over } = event
     if (!over) return
 
@@ -337,21 +333,7 @@ function App() {
         </div>
       </DndContext>
 
-      <div style={{ marginTop: 20, textAlign: 'center' }}>
-        <button
-          onClick={clearGroup}
-          style={{
-            background: '#dc2626',
-            color: 'white',
-            padding: '10px',
-            borderRadius: '10px'
-          }}
-        >
-          Vaciar todo
-        </button>
-      </div>
-
-      {/* ===== POPUP ===== */}
+      {/* POPUP */}
 
       {selectedMaterial && (
         <div
@@ -363,25 +345,19 @@ function App() {
         >
           <div className="popup" onClick={(e) => e.stopPropagation()}>
 
-            {/* INPUT TITULO */}
             <input
               className="title-input"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
             />
 
-            {/* NOTA */}
             <textarea
               className="note-area"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
 
-            {/* DELETE */}
-            <button
-              onClick={deleteMaterial}
-              className="delete-btn"
-            >
+            <button onClick={deleteMaterial} className="delete-btn">
               Eliminar
             </button>
 
