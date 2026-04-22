@@ -49,7 +49,7 @@ function DraggableItem({ material, toggle, setSelectedMaterial, isGrouped }) {
       <div className="material-card">
         <span onClick={() => setSelectedMaterial(material)}>
           {material.title}
-          {material.count > 1 && (
+          {material.count && material.count > 1 && (
             <span style={{ marginLeft: 6, color: '#9ca3af' }}>
               x{material.count}
             </span>
@@ -363,9 +363,9 @@ function App() {
         >
           <div className="popup" onClick={(e) => e.stopPropagation()}>
 
-            {/* EDITAR TITULO */}
+            {/* INPUT TITULO */}
             <input
-              className="note-area"
+              className="title-input"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
             />
@@ -380,12 +380,7 @@ function App() {
             {/* DELETE */}
             <button
               onClick={deleteMaterial}
-              style={{
-                background: '#dc2626',
-                color: 'white',
-                padding: '8px',
-                borderRadius: '8px'
-              }}
+              className="delete-btn"
             >
               Eliminar
             </button>
