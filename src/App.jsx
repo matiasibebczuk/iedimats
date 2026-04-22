@@ -23,13 +23,13 @@ const GROUPS = [
   "Ietzira"
 ]
 
-/* ===== AGRUPAR. ===== */
+/* ===== AGRUPAR ===== */
 
 function groupMaterials(materials) {
   const map = {}
 
   materials.forEach(m => {
-    const key = m.title.toLowerCase()
+    const key = (m.title || '').toLowerCase()
 
     if (!map[key]) {
       map[key] = { ...m, count: 1 }
@@ -59,11 +59,12 @@ function DraggableItem({ material, toggle, setSelectedMaterial }) {
 
       <span onClick={() => setSelectedMaterial(material)}>
         {material.title}
-        {material.count > 1 && (
+
+        {material.count && material.count > 1 ? (
           <span style={{ marginLeft: 6, color: '#9ca3af' }}>
             x{material.count}
           </span>
-        )}
+        ) : null}
       </span>
 
       <div
@@ -78,12 +79,20 @@ function DraggableItem({ material, toggle, setSelectedMaterial }) {
 
 /* ===== COLUMN ===== */
 
-function Column({ type, materials, inputs, setInputs, addMaterial, toggle, setSelectedMaterial, selectedGroup }) {
+function Column({
+  type,
+  materials,
+  inputs,
+  setInputs,
+  addMaterial,
+  toggle,
+  setSelectedMaterial,
+  selectedGroup
+}) {
   const { setNodeRef } = useDroppable({ id: type })
 
   let filtered = materials.filter(m => m.type === type)
 
-  // 🔥 SOLO en "Todos"
   if (selectedGroup === "Todos") {
     filtered = groupMaterials(filtered)
   }
@@ -243,7 +252,11 @@ function App() {
 
         <div className="group-grid">
           {GROUPS.map(g => (
-            <button key={g} onClick={() => setSelectedGroup(g)} className="group-button">
+            <button
+              key={g}
+              onClick={() => setSelectedGroup(g)}
+              className="group-button"
+            >
               {g}
             </button>
           ))}
@@ -290,187 +303,19 @@ function App() {
       </DndContext>
 
       <div style={{ marginTop: 20, textAlign: 'center' }}>
-        <button onClick={clearGroup} style={{ background: '#dc2626', color: 'white', padding: '10px', borderRadius: '10px' }}>
-          Vaciar todo
-        </button>
-      </div>
-
-      {selectedMaterial && (
-        <div className="popup-backdrop" onClick={() => { saveNote(); setSelectedMaterial(null) }}>
-          <div className="popup" onClick={(e) => e.stopPropagation()}>
-            <h3>{selectedMaterial.title}</h3>
-
-            <textarea
-              className="note-area"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
-        </div>
-      )}
-
-    </div>
-  )
-}
-
-export default App      .channel('materials-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'materials' },
-        (payload) => {
-
-          if (payload.eventType === 'INSERT') {
-            setMaterials(prev => [payload.new, ...prev])
-          }
-
-          if (payload.eventType === 'UPDATE') {
-            setMaterials(prev =>
-              prev.map(m =>
-                m.id === payload.new.id ? payload.new : m
-              )
-            )
-          }
-
-          if (payload.eventType === 'DELETE') {
-            setMaterials(prev =>
-              prev.filter(m => m.id !== payload.old.id)
-            )
-          }
-        }
-      )
-      .subscribe()
-
-    return () => supabase.removeChannel(channel)
-  }, [])
-
-  useEffect(() => {
-    if (selectedMaterial) {
-      setNote(selectedMaterial.note || '')
-    }
-  }, [selectedMaterial])
-
-  async function fetchMaterials() {
-    const { data } = await supabase.from('materials').select('*')
-    setMaterials(data || [])
-  }
-
-  async function saveNote() {
-    if (!selectedMaterial) return
-
-    await supabase
-      .from('materials')
-      .update({ note })
-      .eq('id', selectedMaterial.id)
-  }
-
-  async function addMaterial(type) {
-    if (!inputs[type]) return
-
-    await supabase.from('materials').insert({
-      title: inputs[type],
-      group_name: selectedGroup,
-      type
-    })
-
-    setInputs(prev => ({ ...prev, [type]: '' }))
-  }
-
-  async function toggle(material) {
-    await supabase
-      .from('materials')
-      .update({ completed: !material.completed })
-      .eq('id', material.id)
-  }
-
-  async function handleDragEnd(event) {
-    const { active, over } = event
-    if (!over) return
-
-    await supabase
-      .from('materials')
-      .update({ type: over.id })
-      .eq('id', active.id)
-  }
-
-  /* 🧨 NUEVA FUNCIÓN */
-  async function clearGroup() {
-    const confirm = window.confirm("¿Seguro que querés borrar todo este grupo?")
-
-    if (!confirm) return
-
-    await supabase
-      .from('materials')
-      .delete()
-      .eq('group_name', selectedGroup)
-  }
-
-  /* ===== SCREEN 1 ===== */
-
-  if (!selectedGroup) {
-    return (
-      <div className="screen-center">
-        <h1 className="title-main">Elegí un grupo</h1>
-
-        <div className="group-grid">
-          {GROUPS.map(g => (
-            <button key={g} onClick={() => setSelectedGroup(g)} className="group-button">
-              {g}
-            </button>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  /* ===== SCREEN 2 ===== */
-
-  return (
-    <div className="app-container">
-
-      <div className="header">
-        <h1 className="title">{selectedGroup}</h1>
-        <button onClick={() => setSelectedGroup(null)} className="back-btn">
-          ← Volver
-        </button>
-      </div>
-
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div className="board">
-          {TYPES.map(type => (
-            <Column
-              key={type}
-              type={type}
-              inputs={inputs}
-              setInputs={setInputs}
-              addMaterial={addMaterial}
-              toggle={toggle}
-              setSelectedMaterial={setSelectedMaterial}
-              materials={materials.filter(
-                m => m.type === type && m.group_name === selectedGroup
-              )}
-            />
-          ))}
-        </div>
-      </DndContext>
-
-      {/* 🔥 BOTÓN VACIAR */}
-      <div style={{ marginTop: 20, textAlign: 'center' }}>
         <button
           onClick={clearGroup}
           style={{
             background: '#dc2626',
             color: 'white',
-            padding: '10px 16px',
-            borderRadius: '10px',
-            border: 'none',
-            cursor: 'pointer'
+            padding: '10px',
+            borderRadius: '10px'
           }}
         >
           Vaciar todo
         </button>
       </div>
 
-      {/* POPUP NOTA */}
       {selectedMaterial && (
         <div
           className="popup-backdrop"
@@ -486,7 +331,6 @@ export default App      .channel('materials-realtime')
               className="note-area"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Escribí algo..."
             />
           </div>
         </div>
