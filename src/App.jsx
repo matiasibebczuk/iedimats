@@ -545,8 +545,14 @@ async function addMaterial(type) {
 
   if (!selectedGroup) {
     return (
-      <div className="screen-center">
-        <h1 className="title-main">Elegí un grupo</h1>
+    <div className="screen-center">
+
+      {/* LOGO */}
+      <div className="logo-container">
+        <img src="/logo.png" alt="IEDI-MATS" className="logo-img" />
+      </div>
+
+      <h1 className="title-main">Elegí un grupo</h1>
         <div className="group-grid">
           {GROUPS.map((g) => (
             <button
