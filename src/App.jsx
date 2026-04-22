@@ -549,7 +549,7 @@ async function addMaterial(type) {
 
       {/* LOGO */}
       <div className="logo-container">
-        <img src="/logo.png" alt="IEDI-MATS" className="logo-img" />
+        <img src="/file_00000000843071f590de9fbd803d102d.png" alt="IEDI-MATS" className="logo-img" />
       </div>
 
       <h1 className="title-main">Elegí un grupo</h1>
