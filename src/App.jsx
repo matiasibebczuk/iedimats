@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './lib/supabaseClient'
 import './App.css'
 
@@ -15,7 +15,6 @@ import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
-  arrayMove,
 } from '@dnd-kit/sortable'
 
 import { CSS } from '@dnd-kit/utilities'
@@ -33,15 +32,7 @@ const GROUPS = [
   'Ietzira',
 ]
 
-const TAG_COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'gray']
-
-function getTagColor(tag) {
-  let hash = 0
-  for (let i = 0; i < tag.length; i++) {
-    hash = tag.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length]
-}
+/* ===== TOAST ===== */
 
 let toastIdCounter = 0
 
@@ -71,6 +62,96 @@ function ToastContainer({ toasts }) {
   )
 }
 
+/* ===== ITEM ===== */
+
+function SortableMaterialItem({ material, toggle, setSelectedMaterial }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: material.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className="material-card">
+
+      <div
+        onClick={() => toggle(material)}
+        className={`check ${material.completed ? 'done' : ''}`}
+      />
+
+      <div
+        className="material-title"
+        onClick={() => setSelectedMaterial(material)}
+      >
+        {material.title}
+      </div>
+
+      <div {...listeners} {...attributes} className="drag-area" />
+    </div>
+  )
+}
+
+/* ===== COLUMN ===== */
+
+function Column({
+  type,
+  materials,
+  inputs,
+  setInputs,
+  addMaterial,
+  toggle,
+  setSelectedMaterial,
+}) {
+  const { setNodeRef } = useDroppable({ id: type })
+
+  const filtered = materials.filter((m) => m.type === type)
+  const ids = filtered.map((m) => m.id)
+
+  return (
+    <div ref={setNodeRef} className="column">
+      <h2>{type}</h2>
+
+      <div className="input-row">
+        <input
+          value={inputs[type]}
+          onChange={(e) =>
+            setInputs((prev) => ({
+              ...prev,
+              [type]: e.target.value,
+            }))
+          }
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') addMaterial(type)
+          }}
+        />
+        <button onClick={() => addMaterial(type)}>+</button>
+      </div>
+
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        <div className="list">
+          {filtered.map((m) => (
+            <SortableMaterialItem
+              key={m.id}
+              material={m}
+              toggle={toggle}
+              setSelectedMaterial={setSelectedMaterial}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </div>
+  )
+}
+
+/* ===== APP ===== */
+
 function App() {
   const [materials, setMaterials] = useState([])
   const [selectedGroup, setSelectedGroup] = useState(null)
@@ -82,10 +163,7 @@ function App() {
   })
 
   const [selectedMaterial, setSelectedMaterial] = useState(null)
-  const [note, setNote] = useState('')
-  const [editTitle, setEditTitle] = useState('')
 
-  // 🔥 NUEVO
   const [viewHistory, setViewHistory] = useState(false)
   const [historyData, setHistoryData] = useState([])
 
@@ -129,7 +207,6 @@ function App() {
     setMaterials(data || [])
   }
 
-  // 🔥 HISTORIAL
   async function fetchHistory() {
     let query = supabase
       .from('materials_history')
@@ -151,13 +228,11 @@ function App() {
       m.group_name,
       m.type,
       m.completed ? 'Sí' : 'No',
-      (m.tags || []).join(','),
-      m.note || '',
       m.deleted_at
     ])
 
     const csv = [
-      ['Title','Group','Type','Completed','Tags','Note','DeletedAt'],
+      ['Title','Group','Type','Completed','DeletedAt'],
       ...rows
     ].map(r => r.join(',')).join('\n')
 
@@ -190,7 +265,6 @@ function App() {
       .eq('id', material.id)
   }
 
-  // 🔥 DELETE FIX
   async function handleDeleteMaterial(material) {
     if (!window.confirm('Eliminar?')) return
 
@@ -198,11 +272,8 @@ function App() {
       .from('materials')
       .delete()
       .eq('id', material.id)
-
-    setSelectedMaterial(null)
   }
 
-  // 🔥 CLEAR + HISTORIAL
   async function handleClearGroup() {
 
     const toSave =
@@ -210,16 +281,7 @@ function App() {
         ? materials
         : materials.filter(m => m.group_name === selectedGroup)
 
-    await supabase.from('materials_history').insert(
-      toSave.map(m => ({
-        title: m.title,
-        group_name: m.group_name,
-        type: m.type,
-        completed: m.completed,
-        tags: m.tags,
-        note: m.note,
-      }))
-    )
+    await supabase.from('materials_history').insert(toSave)
 
     if (selectedGroup === 'Todos') {
       await supabase.from('materials').delete()
@@ -242,21 +304,13 @@ function App() {
       .eq('id', active.id)
   }
 
-  // 🔥 VISTA HISTORIAL
   if (viewHistory) {
     return (
       <div className="app-container">
         <div className="header">
-          <h1 className="title">Historial - {selectedGroup}</h1>
-
-          <button onClick={() => setViewHistory(false)} className="back-btn">
-            ← Volver
-          </button>
-
-          <button
-            onClick={() => exportHistoryCSV(historyData, selectedGroup)}
-            className="clear-btn"
-          >
+          <h1>Historial - {selectedGroup}</h1>
+          <button onClick={() => setViewHistory(false)}>←</button>
+          <button onClick={() => exportHistoryCSV(historyData, selectedGroup)}>
             Descargar
           </button>
         </div>
@@ -264,16 +318,10 @@ function App() {
         <div className="list">
           {historyData.map(h => (
             <div key={h.id} className="material-card">
-              <div className="material-title">{h.title}</div>
-              <div className="tags-row">
-                <span>{h.type}</span>
-                <span>{new Date(h.deleted_at).toLocaleString()}</span>
-              </div>
+              {h.title}
             </div>
           ))}
         </div>
-
-        <ToastContainer toasts={toasts} />
       </div>
     )
   }
@@ -281,33 +329,15 @@ function App() {
   if (!selectedGroup) {
     return (
       <div className="screen-center">
-
-        <div className="logo-container">
-          <img src="/logonuevo.png" alt="logo" className="logo-img" />
-        </div>
-
-        <h1 className="title-main">Elegí un grupo</h1>
+        <h1>Elegí un grupo</h1>
 
         <div className="group-grid">
           {GROUPS.map((g) => (
-            <button
-              key={g}
-              onClick={() => setSelectedGroup(g)}
-              className="group-button"
-            >
+            <button key={g} onClick={() => setSelectedGroup(g)}>
               {g}
             </button>
           ))}
-
-          <button
-            onClick={() => setSelectedGroup('Todos')}
-            className="group-button todos-button-pro"
-          >
-            Todos
-          </button>
         </div>
-
-        <ToastContainer toasts={toasts} />
       </div>
     )
   }
@@ -316,19 +346,11 @@ function App() {
     <div className="app-container">
 
       <div className="header">
-        <h1 className="title">{selectedGroup}</h1>
+        <h1>{selectedGroup}</h1>
 
-        <button onClick={fetchHistory} className="clear-btn">
-          Historial
-        </button>
-
-        <button onClick={handleClearGroup} className="clear-btn">
-          Limpiar grupo
-        </button>
-
-        <button onClick={() => setSelectedGroup(null)} className="back-btn">
-          ← Volver
-        </button>
+        <button onClick={fetchHistory}>Historial</button>
+        <button onClick={handleClearGroup}>Limpiar grupo</button>
+        <button onClick={() => setSelectedGroup(null)}>←</button>
       </div>
 
       <DndContext
@@ -346,14 +368,9 @@ function App() {
               addMaterial={addMaterial}
               toggle={toggle}
               setSelectedMaterial={setSelectedMaterial}
-              selectedGroup={selectedGroup}
-              materials={
-                selectedGroup === 'Todos'
-                  ? materials
-                  : materials.filter(
-                      (m) => m.group_name === selectedGroup
-                    )
-              }
+              materials={materials.filter(
+                (m) => m.group_name === selectedGroup
+              )}
             />
           ))}
         </div>
