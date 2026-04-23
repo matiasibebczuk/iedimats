@@ -64,7 +64,7 @@ function ToastContainer({ toasts }) {
 
 /* ===== ITEM ===== */
 
-function SortableMaterialItem({ material, toggle, setSelectedMaterial }) {
+function SortableMaterialItem({ material, toggle }) {
   const {
     attributes,
     listeners,
@@ -80,19 +80,11 @@ function SortableMaterialItem({ material, toggle, setSelectedMaterial }) {
 
   return (
     <div ref={setNodeRef} style={style} className="material-card">
-
       <div
         onClick={() => toggle(material)}
         className={`check ${material.completed ? 'done' : ''}`}
       />
-
-      <div
-        className="material-title"
-        onClick={() => setSelectedMaterial(material)}
-      >
-        {material.title}
-      </div>
-
+      <div className="material-title">{material.title}</div>
       <div {...listeners} {...attributes} className="drag-area" />
     </div>
   )
@@ -107,7 +99,6 @@ function Column({
   setInputs,
   addMaterial,
   toggle,
-  setSelectedMaterial,
 }) {
   const { setNodeRef } = useDroppable({ id: type })
 
@@ -127,9 +118,7 @@ function Column({
               [type]: e.target.value,
             }))
           }
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') addMaterial(type)
-          }}
+          onKeyDown={(e) => e.key === 'Enter' && addMaterial(type)}
         />
         <button onClick={() => addMaterial(type)}>+</button>
       </div>
@@ -141,7 +130,6 @@ function Column({
               key={m.id}
               material={m}
               toggle={toggle}
-              setSelectedMaterial={setSelectedMaterial}
             />
           ))}
         </div>
@@ -162,12 +150,10 @@ function App() {
     conseguir: '',
   })
 
-  const [selectedMaterial, setSelectedMaterial] = useState(null)
-
   const [viewHistory, setViewHistory] = useState(false)
   const [historyData, setHistoryData] = useState([])
 
-  const { toasts, addToast } = useToasts()
+  const { toasts } = useToasts()
 
   const sensors = useSensors(useSensor(PointerSensor))
 
@@ -208,41 +194,13 @@ function App() {
   }
 
   async function fetchHistory() {
-    let query = supabase
+    const { data } = await supabase
       .from('materials_history')
       .select('*')
       .order('deleted_at', { ascending: false })
 
-    if (selectedGroup !== 'Todos') {
-      query = query.eq('group_name', selectedGroup)
-    }
-
-    const { data } = await query
     setHistoryData(data || [])
     setViewHistory(true)
-  }
-
-  function exportHistoryCSV(data, name) {
-    const rows = data.map(m => [
-      m.title,
-      m.group_name,
-      m.type,
-      m.completed ? 'Sí' : 'No',
-      m.deleted_at
-    ])
-
-    const csv = [
-      ['Title','Group','Type','Completed','DeletedAt'],
-      ...rows
-    ].map(r => r.join(',')).join('\n')
-
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${name}-${new Date().toISOString()}.csv`
-    a.click()
   }
 
   async function addMaterial(type) {
@@ -265,33 +223,8 @@ function App() {
       .eq('id', material.id)
   }
 
-  async function handleDeleteMaterial(material) {
-    if (!window.confirm('Eliminar?')) return
-
-    await supabase
-      .from('materials')
-      .delete()
-      .eq('id', material.id)
-  }
-
   async function handleClearGroup() {
-
-    const toSave =
-      selectedGroup === 'Todos'
-        ? materials
-        : materials.filter(m => m.group_name === selectedGroup)
-
-    await supabase.from('materials_history').insert(toSave)
-
-    if (selectedGroup === 'Todos') {
-      await supabase.from('materials').delete()
-      return
-    }
-
-    await supabase
-      .from('materials')
-      .delete()
-      .eq('group_name', selectedGroup)
+    await supabase.from('materials').delete().eq('group_name', selectedGroup)
   }
 
   async function handleDragEnd(event) {
@@ -304,19 +237,23 @@ function App() {
       .eq('id', active.id)
   }
 
+  /* ===== HISTORY VIEW ===== */
+
   if (viewHistory) {
     return (
       <div className="app-container">
         <div className="header">
-          <h1>Historial - {selectedGroup}</h1>
-          <button onClick={() => setViewHistory(false)}>←</button>
-          <button onClick={() => exportHistoryCSV(historyData, selectedGroup)}>
-            Descargar
-          </button>
+          <h1 className="title">Historial</h1>
+
+          <div className="header-actions">
+            <button className="back-btn" onClick={() => setViewHistory(false)}>
+              ← Volver
+            </button>
+          </div>
         </div>
 
         <div className="list">
-          {historyData.map(h => (
+          {historyData.map((h) => (
             <div key={h.id} className="material-card">
               {h.title}
             </div>
@@ -326,31 +263,70 @@ function App() {
     )
   }
 
+  /* ===== GROUP SELECT ===== */
+
   if (!selectedGroup) {
     return (
       <div className="screen-center">
-        <h1>Elegí un grupo</h1>
+
+        <div className="logo-container">
+          <div className="logo-img">
+            <img src="/logonuevo.png" alt="logo" />
+          </div>
+        </div>
+
+        <h1 className="title-main">Elegí un grupo</h1>
 
         <div className="group-grid">
           {GROUPS.map((g) => (
-            <button key={g} onClick={() => setSelectedGroup(g)}>
+            <button
+              key={g}
+              onClick={() => setSelectedGroup(g)}
+              className="group-button"
+            >
               {g}
             </button>
           ))}
+
+          {/* 🔥 BOTÓN TODOS (ARREGLADO) */}
+          <button
+            onClick={() => setSelectedGroup('Todos')}
+            className="group-button todos-button-pro"
+          >
+            Todos
+          </button>
         </div>
+
+        <ToastContainer toasts={toasts} />
       </div>
     )
   }
+
+  /* ===== MAIN ===== */
 
   return (
     <div className="app-container">
 
       <div className="header">
-        <h1>{selectedGroup}</h1>
+        <h1 className="title">{selectedGroup}</h1>
 
-        <button onClick={fetchHistory}>Historial</button>
-        <button onClick={handleClearGroup}>Limpiar grupo</button>
-        <button onClick={() => setSelectedGroup(null)}>←</button>
+        {/* 🔥 HEADER PRO */}
+        <div className="header-actions">
+          <button className="clear-btn" onClick={fetchHistory}>
+            Historial
+          </button>
+
+          <button className="clear-btn" onClick={handleClearGroup}>
+            Limpiar
+          </button>
+
+          <button
+            className="back-btn"
+            onClick={() => setSelectedGroup(null)}
+          >
+            ←
+          </button>
+        </div>
       </div>
 
       <DndContext
@@ -367,10 +343,13 @@ function App() {
               setInputs={setInputs}
               addMaterial={addMaterial}
               toggle={toggle}
-              setSelectedMaterial={setSelectedMaterial}
-              materials={materials.filter(
-                (m) => m.group_name === selectedGroup
-              )}
+              materials={
+                selectedGroup === 'Todos'
+                  ? materials
+                  : materials.filter(
+                      (m) => m.group_name === selectedGroup
+                    )
+              }
             />
           ))}
         </div>
