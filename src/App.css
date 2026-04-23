@@ -859,14 +859,18 @@ body {
 .logo-img {
   width: 90px;
   height: 90px;
-  border-radius: 50%;
 
+  border-radius: 50%;
   background: #0f172a;
-  padding: 12px;
+  padding: 8px; /* importante bajar padding */
 
   border: 2px solid #6366f1;
-}
 
+  object-fit: cover;
+
+  transform: scale(1.25);
+  transform-origin: center;
+}
 .logo-text {
   margin-top: 10px;
   font-size: 18px;
