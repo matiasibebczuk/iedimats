@@ -345,29 +345,25 @@ function App() {
     addToast('Cambios guardados', 'success')
   }
 
-  function handleDeleteMaterial(material) {
-    const deletionKey = Date.now()
-    pendingDeletions.current[deletionKey] = material
+ async function handleDeleteMaterial(material) {
+  if (!material) return
 
-    // Remove visually immediately
-    setMaterials((prev) => prev.filter((m) => m.id !== material.id))
-    setSelectedMaterial(null)
+  if (!window.confirm('¿Eliminar este material?')) return
 
-    const toastId = addToast('Material eliminado', 'warning', () => {
-      // UNDO
-      setMaterials((prev) => [...prev, material])
-      delete pendingDeletions.current[deletionKey]
-      removeToast(toastId)
-    })
+  const { error } = await supabase
+    .from('materials')
+    .delete()
+    .eq('id', material.id)
 
-    setTimeout(() => {
-      if (pendingDeletions.current[deletionKey]) {
-        supabase.from('materials').delete().eq('id', material.id)
-        delete pendingDeletions.current[deletionKey]
-        removeToast(toastId)
-      }
-    }, 5000)
+  if (error) {
+    console.error('DELETE ERROR:', error)
+    addToast('Error al eliminar', 'error')
+    return
   }
+
+  setSelectedMaterial(null)
+  addToast('Material eliminado', 'success')
+}
 
 async function addMaterial(type) {
   if (!inputs[type].trim()) return
