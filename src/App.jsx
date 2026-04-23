@@ -308,33 +308,33 @@ function App() {
   /* ===== SCREEN 1 ===== */
 
   if (!selectedGroup) {
-    return (
-      <div className="screen-center">
+  return (
+    <div className="screen-center">
 
-        <div className="logo-container">
-          <div className="logo-img">
-            <img src="/logonuevo.png" alt="logo" />
-          </div>
-          
+      {/* SOLO LOGO */}
+      <div className="logo-container">
+        <div className="logo-img">
+          <img src="/logonuevo.png" alt="logo" />
         </div>
-
-        <h1 className="title-main">Elegí un grupo</h1>
-
-        <div className="group-grid">
-          {GROUPS.map((g) => (
-            <button
-              key={g}
-              onClick={() => setSelectedGroup(g)}
-              className="group-button"
-            >
-              {g}
-            </button>
-          ))}
-        </div>
-
-        <ToastContainer toasts={toasts} />
       </div>
-    )
+
+      <h1 className="title-main">Elegí un grupo</h1>
+
+      <div className="group-grid">
+        {GROUPS.map((g) => (
+          <button
+            key={g}
+            onClick={() => setSelectedGroup(g)}
+            className="group-button"
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+
+      <ToastContainer toasts={toasts} />
+    </div>
+  )
   }
 
   /* ===== SCREEN 2 ===== */
