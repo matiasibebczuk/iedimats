@@ -34,9 +34,8 @@ const GROUPS = [
 ]
 
 /* ===== TAG COLOR MAP ===== */
-const TAG_COLORS = [
-  'red', 'green', 'blue', 'yellow', 'purple', 'gray'
-]
+
+const TAG_COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'gray']
 
 function getTagColor(tag) {
   let hash = 0
@@ -53,59 +52,39 @@ let toastIdCounter = 0
 function useToasts() {
   const [toasts, setToasts] = useState([])
 
-  const addToast = useCallback((message, type = 'info', onUndo = null) => {
+  const addToast = useCallback((message, type = 'info') => {
     const id = ++toastIdCounter
-    setToasts((prev) => [...prev, { id, message, type, onUndo }])
-    return id
+    setToasts((prev) => [...prev, { id, message, type }])
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id))
+    }, 3000)
   }, [])
 
-  const removeToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id))
-  }, [])
-
-  return { toasts, addToast, removeToast }
+  return { toasts, addToast }
 }
 
-function ToastContainer({ toasts, removeToast }) {
+function ToastContainer({ toasts }) {
   return (
     <div className="toast-container">
-      {toasts.map((toast) => (
-        <div key={toast.id} className={`toast ${toast.type}`}>
-          <span className="toast-message">{toast.message}</span>
-          {toast.onUndo && (
-            <button
-              className="toast-undo"
-              onClick={() => {
-                toast.onUndo()
-                removeToast(toast.id)
-              }}
-            >
-              Deshacer
-            </button>
-          )}
-          <button
-            className="toast-close"
-            onClick={() => removeToast(toast.id)}
-          >
-            &times;
-          </button>
+      {toasts.map((t) => (
+        <div key={t.id} className={`toast ${t.type}`}>
+          {t.message}
         </div>
       ))}
     </div>
   )
 }
 
-/* ===== AGRUPAR (solo visual) ===== */
+/* ===== AGRUPAR ===== */
 
 function groupMaterials(materials) {
   const map = {}
   materials.forEach((m) => {
     const key = (m.title || '').toLowerCase()
     if (!map[key]) {
-      map[key] = { ...m, count: 1, _ids: [m.id] }
+      map[key] = { ...m, count: 1 }
     } else {
       map[key].count += 1
-      map[key]._ids.push(m.id)
     }
   })
   return Object.values(map)
@@ -125,7 +104,6 @@ function SortableMaterialItem({
     setNodeRef,
     transform,
     transition,
-    isDragging,
   } = useSortable({ id: material.id })
 
   const style = {
@@ -134,13 +112,7 @@ function SortableMaterialItem({
   }
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`material-card ${material.completed ? 'completed' : ''} ${
-        isDragging ? 'dragging' : ''
-      }`}
-    >
+    <div ref={setNodeRef} style={style} className="material-card">
       {!isGrouped && (
         <div
           onClick={() => toggle(material)}
@@ -148,28 +120,16 @@ function SortableMaterialItem({
         />
       )}
 
-      <div
-        className="material-title"
-        onClick={() => setSelectedMaterial(material)}
-      >
-        <span className="material-title-text">
-          {material.title}
-          {isGrouped && material.count > 1 && (
-            <span className="grouped-count">x{material.count}</span>
-          )}
-        </span>
-        {!isGrouped && material.tags && material.tags.length > 0 && (
-          <div className="tags-row">
-            {material.tags.map((tag) => (
-              <span key={tag} className={`tag-chip tag-${getTagColor(tag)}`}>
-                {tag}
-              </span>
-            ))}
-          </div>
+      <div onClick={() => setSelectedMaterial(material)}>
+        {material.title}
+        {isGrouped && material.count > 1 && (
+          <span style={{ marginLeft: 6 }}>x{material.count}</span>
         )}
       </div>
 
-      <div {...listeners} {...attributes} className="drag-area" />
+      {!isGrouped && (
+        <div {...listeners} {...attributes} className="drag-area" />
+      )}
     </div>
   )
 }
@@ -200,10 +160,7 @@ function Column({
 
   return (
     <div ref={setNodeRef} className="column">
-      <h2>
-        {type}
-        <span className="column-count">{filtered.length}</span>
-      </h2>
+      <h2>{type}</h2>
 
       <div className="input-row">
         <input
@@ -214,45 +171,32 @@ function Column({
               [type]: e.target.value,
             }))
           }
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') addMaterial(type)
-          }}
-          placeholder="Agregar..."
         />
         <button onClick={() => addMaterial(type)}>+</button>
       </div>
 
-      <div className="list">
-        <SortableContext
-          items={itemIds}
-          strategy={verticalListSortingStrategy}
-        >
-          {displayList.length === 0 ? (
-            <div className="empty-state">No hay materiales</div>
-          ) : (
-            displayList.map((m) => (
-              <SortableMaterialItem
-                key={m.id}
-                material={m}
-                toggle={toggle}
-                setSelectedMaterial={setSelectedMaterial}
-                isGrouped={selectedGroup === 'Todos'}
-              />
-            ))
-          )}
-        </SortableContext>
-      </div>
+      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+        <div className="list">
+          {displayList.map((m) => (
+            <SortableMaterialItem
+              key={m.id}
+              material={m}
+              toggle={toggle}
+              setSelectedMaterial={setSelectedMaterial}
+              isGrouped={selectedGroup === 'Todos'}
+            />
+          ))}
+        </div>
+      </SortableContext>
     </div>
   )
 }
 
-/* ===== MAIN APP ===== */
+/* ===== APP ===== */
 
 function App() {
   const [materials, setMaterials] = useState([])
   const [selectedGroup, setSelectedGroup] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
 
   const [inputs, setInputs] = useState({
     geshuer: '',
@@ -263,40 +207,19 @@ function App() {
   const [selectedMaterial, setSelectedMaterial] = useState(null)
   const [note, setNote] = useState('')
   const [editTitle, setEditTitle] = useState('')
-  const [editTags, setEditTags] = useState([])
-  const [newTagInput, setNewTagInput] = useState('')
 
-  const { toasts, addToast, removeToast } = useToasts()
-  const pendingDeletions = useRef({})
+  const [viewHistory, setViewHistory] = useState(false)
+  const [historyData, setHistoryData] = useState([])
 
-  /* ===== SENSORS ===== */
+  const { toasts, addToast } = useToasts()
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    })
-  )
-
-  /* ===== FETCH ===== */
-
-  async function fetchMaterials() {
-    setIsLoading(true)
-    const { data } = await supabase
-      .from('materials')
-      .select('*')
-      .order('position', { ascending: true })
-      .order('created_at', { ascending: false })
-    setMaterials(data || [])
-    setIsLoading(false)
-  }
+  const sensors = useSensors(useSensor(PointerSensor))
 
   useEffect(() => {
     fetchMaterials()
 
     const channel = supabase
-      .channel('materials-realtime')
+      .channel('materials')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'materials' },
@@ -306,7 +229,9 @@ function App() {
           }
           if (payload.eventType === 'UPDATE') {
             setMaterials((prev) =>
-              prev.map((m) => (m.id === payload.new.id ? payload.new : m))
+              prev.map((m) =>
+                m.id === payload.new.id ? payload.new : m
+              )
             )
           }
           if (payload.eventType === 'DELETE') {
@@ -321,71 +246,63 @@ function App() {
     return () => supabase.removeChannel(channel)
   }, [])
 
-  useEffect(() => {
-    if (selectedMaterial) {
-      setNote(selectedMaterial.note || '')
-      setEditTitle(selectedMaterial.title || '')
-      setEditTags(selectedMaterial.tags || [])
-      setNewTagInput('')
+  async function fetchMaterials() {
+    const { data } = await supabase.from('materials').select('*')
+    setMaterials(data || [])
+  }
+
+  async function fetchHistory() {
+    let query = supabase
+      .from('materials_history')
+      .select('*')
+      .order('deleted_at', { ascending: false })
+
+    if (selectedGroup !== 'Todos') {
+      query = query.eq('group_name', selectedGroup)
     }
-  }, [selectedMaterial])
 
-  /* ===== MATERIAL OPERATIONS ===== */
-
-  async function saveChanges() {
-    if (!selectedMaterial) return
-    await supabase
-      .from('materials')
-      .update({
-        note,
-        title: editTitle,
-        tags: editTags,
-      })
-      .eq('id', selectedMaterial.id)
-    addToast('Cambios guardados', 'success')
+    const { data } = await query
+    setHistoryData(data || [])
+    setViewHistory(true)
   }
 
- async function handleDeleteMaterial(material) {
-  if (!material) return
+  function exportHistoryCSV(data, name) {
+    const rows = data.map(m => [
+      m.title,
+      m.group_name,
+      m.type,
+      m.completed ? 'Sí' : 'No',
+      (m.tags || []).join(','),
+      m.note || '',
+      m.deleted_at
+    ])
 
-  if (!window.confirm('¿Eliminar este material?')) return
+    const csv = [
+      ['Title','Group','Type','Completed','Tags','Note','DeletedAt'],
+      ...rows
+    ].map(r => r.join(',')).join('\n')
 
-  const { error } = await supabase
-    .from('materials')
-    .delete()
-    .eq('id', material.id)
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
 
-  if (error) {
-    console.error('DELETE ERROR:', error)
-    addToast('Error al eliminar', 'error')
-    return
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${name}-${new Date().toISOString()}.csv`
+    a.click()
   }
 
-  setSelectedMaterial(null)
-  addToast('Material eliminado', 'success')
-}
+  async function addMaterial(type) {
+    if (!inputs[type]) return
 
-async function addMaterial(type) {
-  if (!inputs[type].trim()) return
+    await supabase.from('materials').insert({
+      title: inputs[type],
+      group_name: selectedGroup,
+      type,
+      completed: false,
+    })
 
-  const { error } = await supabase.from('materials').insert({
-    title: inputs[type].trim(),
-    group_name: selectedGroup === 'Todos' ? 'Sin grupo' : selectedGroup,
-    type,
-    completed: false,
-    note: '',
-    tags: []
-  })
-
-  if (error) {
-    console.error("INSERT ERROR:", error)
-    addToast('Error al agregar material', 'error')
-    return
+    setInputs((prev) => ({ ...prev, [type]: '' }))
   }
-
-  setInputs((prev) => ({ ...prev, [type]: '' }))
-  addToast('Material agregado', 'success')
-}
 
   async function toggle(material) {
     await supabase
@@ -394,203 +311,122 @@ async function addMaterial(type) {
       .eq('id', material.id)
   }
 
-  /* ===== TAG OPERATIONS ===== */
+  async function handleDeleteMaterial(material) {
+    if (!window.confirm('Eliminar?')) return
 
-  function addTag() {
-    const tag = newTagInput.trim().toLowerCase()
-    if (!tag) return
-    if (editTags.includes(tag)) {
-      setNewTagInput('')
+    await supabase
+      .from('materials')
+      .delete()
+      .eq('id', material.id)
+
+    setSelectedMaterial(null)
+  }
+
+  async function handleClearGroup() {
+
+    const toSave =
+      selectedGroup === 'Todos'
+        ? materials
+        : materials.filter(m => m.group_name === selectedGroup)
+
+    await supabase.from('materials_history').insert(toSave)
+
+    if (selectedGroup === 'Todos') {
+      await supabase.from('materials').delete()
       return
     }
-    setEditTags((prev) => [...prev, tag])
-    setNewTagInput('')
-  }
 
-  function removeTag(tag) {
-    setEditTags((prev) => prev.filter((t) => t !== tag))
+    await supabase
+      .from('materials')
+      .delete()
+      .eq('group_name', selectedGroup)
   }
-
-  /* ===== DRAG & DROP ===== */
 
   async function handleDragEnd(event) {
     const { active, over } = event
     if (!over) return
 
-    const activeId = active.id
-    const overId = over.id
-
-    const activeMaterial = materials.find((m) => m.id === activeId)
-    if (!activeMaterial) return
-
-    // Dropped on a column (different type)
-    if (TYPES.includes(overId)) {
-      if (activeMaterial.type !== overId) {
-        await supabase
-          .from('materials')
-          .update({ type: overId })
-          .eq('id', activeId)
-        addToast(`Movido a "${overId}"`, 'success')
-      }
-      return
-    }
-
-    // Dropped on another item
-    const overMaterial = materials.find((m) => m.id === overId)
-    if (!overMaterial) return
-
-    if (activeMaterial.type !== overMaterial.type) {
-      // Moved to different column
-      await supabase
-        .from('materials')
-        .update({ type: overMaterial.type })
-        .eq('id', activeId)
-      addToast(`Movido a "${overMaterial.type}"`, 'success')
-    } else {
-      // Reordered within same column
-      const columnMaterials = materials
-        .filter((m) => m.type === activeMaterial.type)
-        .sort((a, b) => (a.position || 0) - (b.position || 0))
-
-      const oldIndex = columnMaterials.findIndex((m) => m.id === activeId)
-      const newIndex = columnMaterials.findIndex((m) => m.id === overId)
-
-      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-        const reordered = arrayMove(columnMaterials, oldIndex, newIndex)
-
-        // Update positions locally
-        const updatedMaterials = materials.map((m) => {
-          const idx = reordered.findIndex((r) => r.id === m.id)
-          if (idx !== -1) {
-            return { ...m, position: idx }
-          }
-          return m
-        })
-        setMaterials(updatedMaterials)
-
-        // Persist to Supabase
-        try {
-          await Promise.all(
-            reordered.map((m, i) =>
-              supabase
-                .from('materials')
-                .update({ position: i })
-                .eq('id', m.id)
-            )
-          )
-        } catch {
-          // position column might not exist
-        }
-      }
-    }
+    await supabase
+      .from('materials')
+      .update({ type: over.id })
+      .eq('id', active.id)
   }
 
-  /* ===== CLEAR GROUP ===== */
+  /* ===== HISTORY VIEW ===== */
 
-  function handleClearGroup() {
-    if (selectedGroup === 'Todos') {
-      const toastId = addToast('Todos los materiales eliminados', 'warning', () => {
-        // Cannot undo "delete all" easily, so just remove toast
-        removeToast(toastId)
-      })
-      supabase.from('materials').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-      return
-    }
-
-    const groupMaterials = materials.filter((m) => m.group_name === selectedGroup)
-    const deletionKey = Date.now()
-    pendingDeletions.current[deletionKey] = groupMaterials
-
-    setMaterials((prev) => prev.filter((m) => m.group_name !== selectedGroup))
-
-    const toastId = addToast(`Grupo "${selectedGroup}" eliminado`, 'warning', () => {
-      setMaterials((prev) => [...prev, ...groupMaterials])
-      delete pendingDeletions.current[deletionKey]
-      removeToast(toastId)
-    })
-
-    setTimeout(() => {
-      if (pendingDeletions.current[deletionKey]) {
-        supabase.from('materials').delete().eq('group_name', selectedGroup)
-        delete pendingDeletions.current[deletionKey]
-        removeToast(toastId)
-      }
-    }, 5000)
-  }
-
-  /* ===== FILTERED MATERIALS ===== */
-
-  const filteredMaterials = searchQuery.trim()
-    ? materials.filter((m) =>
-        (m.title || '').toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : materials
-
-  /* ===== LOADING SCREEN ===== */
-
-  if (isLoading) {
+  if (viewHistory) {
     return (
-      <div className="loading-screen">
-        <div className="spinner" />
-        <span>Cargando materiales...</span>
+      <div className="app-container">
+        <div className="header">
+          <h1>Historial - {selectedGroup}</h1>
+
+          <button onClick={() => setViewHistory(false)}>
+            ← Volver
+          </button>
+
+          <button
+            onClick={() =>
+              exportHistoryCSV(historyData, selectedGroup)
+            }
+          >
+            Descargar
+          </button>
+        </div>
+
+        <div className="list">
+          {historyData.map(h => (
+            <div key={h.id} className="material-card">
+              <strong>{h.title}</strong>
+              <span>{h.type}</span>
+              <span>{new Date(h.deleted_at).toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
 
-  /* ===== SCREEN 1: GROUP SELECTOR ===== */
+  /* ===== GROUP SELECT ===== */
 
   if (!selectedGroup) {
     return (
-    <div className="screen-center">
+      <div className="screen-center">
+        <h1>Elegí un grupo</h1>
 
-      {/* LOGO */}
-      <div className="logo-container">
-        <img src="/logonuevo.png" alt="IEDI-MATS" className="logo-img" />
-      </div>
-
-      <h1 className="title-main">Elegí un grupo</h1>
         <div className="group-grid">
           {GROUPS.map((g) => (
-            <button
-              key={g}
-              onClick={() => setSelectedGroup(g)}
-              className="group-button"
-            >
+            <button key={g} onClick={() => setSelectedGroup(g)}>
               {g}
             </button>
           ))}
-          <button
-            onClick={() => setSelectedGroup('Todos')}
-            className="group-button todos-button-pro"
-          >
+
+          <button onClick={() => setSelectedGroup('Todos')}>
             Todos
           </button>
         </div>
-        <ToastContainer toasts={toasts} removeToast={removeToast} />
       </div>
     )
   }
 
-  /* ===== SCREEN 2: KANBAN BOARD ===== */
+  /* ===== MAIN ===== */
 
   return (
     <div className="app-container">
+
       <div className="header">
-        <h1 className="title">{selectedGroup}</h1>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            className="search-bar"
-            placeholder="Buscar materiales..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <button onClick={handleClearGroup} className="clear-btn">
-            Limpiar grupo
-          </button>
-          <button onClick={() => setSelectedGroup(null)} className="back-btn">
-            ← Volver
-          </button>
-        </div>
+        <h1>{selectedGroup}</h1>
+
+        <button onClick={fetchHistory}>Historial</button>
+
+        <button onClick={() => exportHistoryCSV(historyData, selectedGroup)}>
+          Descargar historial
+        </button>
+
+        <button onClick={handleClearGroup}>Limpiar grupo</button>
+
+        <button onClick={() => setSelectedGroup(null)}>
+          ← Volver
+        </button>
       </div>
 
       <DndContext
@@ -611,8 +447,8 @@ async function addMaterial(type) {
               selectedGroup={selectedGroup}
               materials={
                 selectedGroup === 'Todos'
-                  ? filteredMaterials
-                  : filteredMaterials.filter(
+                  ? materials
+                  : materials.filter(
                       (m) => m.group_name === selectedGroup
                     )
               }
@@ -621,102 +457,32 @@ async function addMaterial(type) {
         </div>
       </DndContext>
 
-      {/* ===== POPUP ===== */}
-
       {selectedMaterial && (
         <div
           className="popup-backdrop"
-          onClick={() => {
-            saveChanges()
-            setSelectedMaterial(null)
-          }}
+          onClick={() => setSelectedMaterial(null)}
         >
           <div className="popup" onClick={(e) => e.stopPropagation()}>
-            <div className="popup-header">
-              <h3>Editar material</h3>
-              <button
-                className="back-btn"
-                style={{ padding: '4px 8px', fontSize: '12px' }}
-                onClick={() => {
-                  saveChanges()
-                  setSelectedMaterial(null)
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
             <input
-              className="title-input"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              placeholder="Título..."
             />
-
-            <label className="completed-toggle">
-              <div
-                onClick={() => toggle(selectedMaterial)}
-                className={`check ${selectedMaterial.completed ? 'done' : ''}`}
-              />
-              <span>
-                {selectedMaterial.completed ? 'Completado' : 'Pendiente'}
-              </span>
-            </label>
 
             <textarea
-              className="note-area"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Notas..."
             />
 
-            {/* ===== TAGS SECTION ===== */}
-            <div className="tags-section-label">Etiquetas</div>
-            <div className="tags-container">
-              {editTags.map((tag) => (
-                <span
-                  key={tag}
-                  className={`tag-item tag-${getTagColor(tag)}`}
-                >
-                  {tag}
-                  <button onClick={() => removeTag(tag)}>&times;</button>
-                </span>
-              ))}
-            </div>
-            <div className="tag-input-row">
-              <input
-                value={newTagInput}
-                onChange={(e) => setNewTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') addTag()
-                }}
-                placeholder="Nueva etiqueta..."
-              />
-              <button onClick={addTag}>+</button>
-            </div>
-
-            <div className="popup-actions">
-              <button
-                onClick={() => handleDeleteMaterial(selectedMaterial)}
-                className="delete-btn"
-              >
-                Eliminar
-              </button>
-              <button
-                onClick={() => {
-                  saveChanges()
-                  setSelectedMaterial(null)
-                }}
-                className="save-btn"
-              >
-                Guardar
-              </button>
-            </div>
+            <button
+              onClick={() => handleDeleteMaterial(selectedMaterial)}
+            >
+              Eliminar
+            </button>
           </div>
         </div>
       )}
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <ToastContainer toasts={toasts} />
     </div>
   )
 }
