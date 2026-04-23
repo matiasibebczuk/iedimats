@@ -313,7 +313,7 @@ function App() {
 
         <div className="logo-container">
           <div className="logo-img">
-            <img src="/logo.png" alt="logo" />
+            <img src="/logonuevo.png" alt="logo" />
           </div>
           
         </div>
