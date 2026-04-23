@@ -33,7 +33,7 @@ const GROUPS = [
   'Ietzira',
 ]
 
-/* ===== TAG COLOR MAP ===== */
+/* ===== TAG COLOR MAP ==== = */
 const TAG_COLORS = [
   'red', 'green', 'blue', 'yellow', 'purple', 'gray'
 ]
