@@ -875,5 +875,5 @@ body {
   height: 100%;
   object-fit: contain;
 
-  transform: scale(1.25); /* zoom interno */
+  transform: scale(1.15); /* zoom interno */
 }
