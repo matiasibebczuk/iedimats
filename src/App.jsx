@@ -33,8 +33,6 @@ const GROUPS = [
   'Ietzira',
 ]
 
-/* ===== TAG COLOR MAP ===== */
-
 const TAG_COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'gray']
 
 function getTagColor(tag) {
@@ -44,8 +42,6 @@ function getTagColor(tag) {
   }
   return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length]
 }
-
-/* ===== TOAST SYSTEM ===== */
 
 let toastIdCounter = 0
 
@@ -75,125 +71,6 @@ function ToastContainer({ toasts }) {
   )
 }
 
-/* ===== AGRUPAR ===== */
-
-function groupMaterials(materials) {
-  const map = {}
-  materials.forEach((m) => {
-    const key = (m.title || '').toLowerCase()
-    if (!map[key]) {
-      map[key] = { ...m, count: 1 }
-    } else {
-      map[key].count += 1
-    }
-  })
-  return Object.values(map)
-}
-
-/* ===== SORTABLE ITEM ===== */
-
-function SortableMaterialItem({
-  material,
-  toggle,
-  setSelectedMaterial,
-  isGrouped,
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: material.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} className="material-card">
-      {!isGrouped && (
-        <div
-          onClick={() => toggle(material)}
-          className={`check ${material.completed ? 'done' : ''}`}
-        />
-      )}
-
-      <div onClick={() => setSelectedMaterial(material)}>
-        {material.title}
-        {isGrouped && material.count > 1 && (
-          <span style={{ marginLeft: 6 }}>x{material.count}</span>
-        )}
-      </div>
-
-      {!isGrouped && (
-        <div {...listeners} {...attributes} className="drag-area" />
-      )}
-    </div>
-  )
-}
-
-/* ===== COLUMN ===== */
-
-function Column({
-  type,
-  materials,
-  inputs,
-  setInputs,
-  addMaterial,
-  toggle,
-  setSelectedMaterial,
-  selectedGroup,
-}) {
-  const { setNodeRef } = useDroppable({ id: type })
-
-  let filtered = materials.filter((m) => m.type === type)
-
-  let displayList = filtered
-
-  if (selectedGroup === 'Todos') {
-    displayList = groupMaterials(filtered)
-  }
-
-  const itemIds = displayList.map((m) => m.id)
-
-  return (
-    <div ref={setNodeRef} className="column">
-      <h2>{type}</h2>
-
-      <div className="input-row">
-        <input
-          value={inputs[type]}
-          onChange={(e) =>
-            setInputs((prev) => ({
-              ...prev,
-              [type]: e.target.value,
-            }))
-          }
-        />
-        <button onClick={() => addMaterial(type)}>+</button>
-      </div>
-
-      <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-        <div className="list">
-          {displayList.map((m) => (
-            <SortableMaterialItem
-              key={m.id}
-              material={m}
-              toggle={toggle}
-              setSelectedMaterial={setSelectedMaterial}
-              isGrouped={selectedGroup === 'Todos'}
-            />
-          ))}
-        </div>
-      </SortableContext>
-    </div>
-  )
-}
-
-/* ===== APP ===== */
-
 function App() {
   const [materials, setMaterials] = useState([])
   const [selectedGroup, setSelectedGroup] = useState(null)
@@ -208,6 +85,7 @@ function App() {
   const [note, setNote] = useState('')
   const [editTitle, setEditTitle] = useState('')
 
+  // 🔥 NUEVO
   const [viewHistory, setViewHistory] = useState(false)
   const [historyData, setHistoryData] = useState([])
 
@@ -251,6 +129,7 @@ function App() {
     setMaterials(data || [])
   }
 
+  // 🔥 HISTORIAL
   async function fetchHistory() {
     let query = supabase
       .from('materials_history')
@@ -311,6 +190,7 @@ function App() {
       .eq('id', material.id)
   }
 
+  // 🔥 DELETE FIX
   async function handleDeleteMaterial(material) {
     if (!window.confirm('Eliminar?')) return
 
@@ -322,6 +202,7 @@ function App() {
     setSelectedMaterial(null)
   }
 
+  // 🔥 CLEAR + HISTORIAL
   async function handleClearGroup() {
 
     const toSave =
@@ -329,7 +210,16 @@ function App() {
         ? materials
         : materials.filter(m => m.group_name === selectedGroup)
 
-    await supabase.from('materials_history').insert(toSave)
+    await supabase.from('materials_history').insert(
+      toSave.map(m => ({
+        title: m.title,
+        group_name: m.group_name,
+        type: m.type,
+        completed: m.completed,
+        tags: m.tags,
+        note: m.note,
+      }))
+    )
 
     if (selectedGroup === 'Todos') {
       await supabase.from('materials').delete()
@@ -352,22 +242,20 @@ function App() {
       .eq('id', active.id)
   }
 
-  /* ===== HISTORY VIEW ===== */
-
+  // 🔥 VISTA HISTORIAL
   if (viewHistory) {
     return (
       <div className="app-container">
         <div className="header">
-          <h1>Historial - {selectedGroup}</h1>
+          <h1 className="title">Historial - {selectedGroup}</h1>
 
-          <button onClick={() => setViewHistory(false)}>
+          <button onClick={() => setViewHistory(false)} className="back-btn">
             ← Volver
           </button>
 
           <button
-            onClick={() =>
-              exportHistoryCSV(historyData, selectedGroup)
-            }
+            onClick={() => exportHistoryCSV(historyData, selectedGroup)}
+            className="clear-btn"
           >
             Descargar
           </button>
@@ -376,55 +264,69 @@ function App() {
         <div className="list">
           {historyData.map(h => (
             <div key={h.id} className="material-card">
-              <strong>{h.title}</strong>
-              <span>{h.type}</span>
-              <span>{new Date(h.deleted_at).toLocaleString()}</span>
+              <div className="material-title">{h.title}</div>
+              <div className="tags-row">
+                <span>{h.type}</span>
+                <span>{new Date(h.deleted_at).toLocaleString()}</span>
+              </div>
             </div>
           ))}
         </div>
+
+        <ToastContainer toasts={toasts} />
       </div>
     )
   }
-
-  /* ===== GROUP SELECT ===== */
 
   if (!selectedGroup) {
     return (
       <div className="screen-center">
-        <h1>Elegí un grupo</h1>
+
+        <div className="logo-container">
+          <img src="/logonuevo.png" alt="logo" className="logo-img" />
+        </div>
+
+        <h1 className="title-main">Elegí un grupo</h1>
 
         <div className="group-grid">
           {GROUPS.map((g) => (
-            <button key={g} onClick={() => setSelectedGroup(g)}>
+            <button
+              key={g}
+              onClick={() => setSelectedGroup(g)}
+              className="group-button"
+            >
               {g}
             </button>
           ))}
 
-          <button onClick={() => setSelectedGroup('Todos')}>
+          <button
+            onClick={() => setSelectedGroup('Todos')}
+            className="group-button todos-button-pro"
+          >
             Todos
           </button>
         </div>
+
+        <ToastContainer toasts={toasts} />
       </div>
     )
   }
-
-  /* ===== MAIN ===== */
 
   return (
     <div className="app-container">
 
       <div className="header">
-        <h1>{selectedGroup}</h1>
+        <h1 className="title">{selectedGroup}</h1>
 
-        <button onClick={fetchHistory}>Historial</button>
-
-        <button onClick={() => exportHistoryCSV(historyData, selectedGroup)}>
-          Descargar historial
+        <button onClick={fetchHistory} className="clear-btn">
+          Historial
         </button>
 
-        <button onClick={handleClearGroup}>Limpiar grupo</button>
+        <button onClick={handleClearGroup} className="clear-btn">
+          Limpiar grupo
+        </button>
 
-        <button onClick={() => setSelectedGroup(null)}>
+        <button onClick={() => setSelectedGroup(null)} className="back-btn">
           ← Volver
         </button>
       </div>
@@ -456,31 +358,6 @@ function App() {
           ))}
         </div>
       </DndContext>
-
-      {selectedMaterial && (
-        <div
-          className="popup-backdrop"
-          onClick={() => setSelectedMaterial(null)}
-        >
-          <div className="popup" onClick={(e) => e.stopPropagation()}>
-            <input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-            />
-
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-
-            <button
-              onClick={() => handleDeleteMaterial(selectedMaterial)}
-            >
-              Eliminar
-            </button>
-          </div>
-        </div>
-      )}
 
       <ToastContainer toasts={toasts} />
     </div>
