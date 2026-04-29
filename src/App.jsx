@@ -800,13 +800,6 @@ function App() {
           >
             Todos
           </button>
-
-          <button
-            onClick={() => setIsHistoryOpen(true)}
-            className="group-button"
-          >
-            Historial
-          </button>
         </div>
 
         <ToastContainer toasts={toasts} removeToast={removeToast} />
