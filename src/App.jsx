@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './lib/supabaseClient'
 import './App.css'
 
@@ -67,6 +67,7 @@ function ToastContainer({ toasts, removeToast }) {
       {toasts.map((toast) => (
         <div key={toast.id} className={`toast ${toast.type}`}>
           <span className="toast-message">{toast.message}</span>
+
           {toast.onUndo && (
             <button
               className="toast-undo"
@@ -78,6 +79,7 @@ function ToastContainer({ toasts, removeToast }) {
               Deshacer
             </button>
           )}
+
           <button
             className="toast-close"
             onClick={() => removeToast(toast.id)}
@@ -182,7 +184,6 @@ function Column({
   const { setNodeRef } = useDroppable({ id: type })
 
   const filtered = materials.filter((m) => m.type === type)
-
   let displayList = filtered
 
   if (selectedGroup === 'Todos') {
@@ -239,9 +240,74 @@ function Column({
   )
 }
 
+function HistoryView({
+  deletedMaterials,
+  restoreMaterial,
+  deleteForever,
+  backToBoard,
+}) {
+  return (
+    <div className="app-container">
+      <div className="header">
+        <h1 className="title">Historial</h1>
+
+        <button onClick={backToBoard} className="back-btn">
+          ← Volver
+        </button>
+      </div>
+
+      <div className="list">
+        {deletedMaterials.length === 0 ? (
+          <div className="empty-state">No hay materiales eliminados</div>
+        ) : (
+          deletedMaterials.map((material) => (
+            <div key={material.id} className="material-card">
+              <div className="material-title">
+                <span className="material-title-text">{material.title}</span>
+
+                <div className="tags-row">
+                  <span className="tag-chip tag-gray">
+                    {material.group_name || 'Sin grupo'}
+                  </span>
+                  <span className="tag-chip tag-blue">
+                    {material.type || 'Sin tipo'}
+                  </span>
+                  {material.deleted_at && (
+                    <span className="tag-chip tag-red">
+                      Eliminado: {new Date(material.deleted_at).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => restoreMaterial(material)}
+                  className="save-btn"
+                >
+                  Restaurar
+                </button>
+
+                <button
+                  onClick={() => deleteForever(material)}
+                  className="delete-btn"
+                >
+                  Borrar definitivo
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [materials, setMaterials] = useState([])
+  const [deletedMaterials, setDeletedMaterials] = useState([])
   const [selectedGroup, setSelectedGroup] = useState(null)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -258,7 +324,6 @@ function App() {
   const [newTagInput, setNewTagInput] = useState('')
 
   const { toasts, addToast, removeToast } = useToasts()
-  const pendingDeletions = useRef({})
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -274,7 +339,7 @@ function App() {
     const { data, error } = await supabase
       .from('materials')
       .select('*')
-      .order('position', { ascending: true })
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -289,8 +354,25 @@ function App() {
     setIsLoading(false)
   }
 
+  async function fetchDeletedMaterials() {
+    const { data, error } = await supabase
+      .from('materials')
+      .select('*')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false })
+
+    if (error) {
+      console.error('FETCH HISTORY ERROR:', error)
+      addToast('Error al cargar historial', 'error')
+      return
+    }
+
+    setDeletedMaterials(data || [])
+  }
+
   useEffect(() => {
     fetchMaterials()
+    fetchDeletedMaterials()
 
     const channel = supabase
       .channel('materials-realtime')
@@ -299,27 +381,60 @@ function App() {
         { event: '*', schema: 'public', table: 'materials' },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setMaterials((prev) => {
-              if (prev.some((m) => m.id === payload.new.id)) return prev
-              return [payload.new, ...prev]
-            })
+            if (payload.new.deleted_at) {
+              setDeletedMaterials((prev) => {
+                if (prev.some((m) => m.id === payload.new.id)) return prev
+                return [payload.new, ...prev]
+              })
+            } else {
+              setMaterials((prev) => {
+                if (prev.some((m) => m.id === payload.new.id)) return prev
+                return [payload.new, ...prev]
+              })
+            }
           }
 
           if (payload.eventType === 'UPDATE') {
-            setMaterials((prev) =>
-              prev.map((m) => (m.id === payload.new.id ? payload.new : m))
-            )
-
-            setSelectedMaterial((prev) =>
-              prev && prev.id === payload.new.id ? payload.new : prev
-            )
+            if (payload.new.deleted_at) {
+              setMaterials((prev) =>
+                prev.filter((m) => m.id !== payload.new.id)
+              )
+              setDeletedMaterials((prev) => {
+                const exists = prev.some((m) => m.id === payload.new.id)
+                if (exists) {
+                  return prev.map((m) =>
+                    m.id === payload.new.id ? payload.new : m
+                  )
+                }
+                return [payload.new, ...prev]
+              })
+              setSelectedMaterial((prev) =>
+                prev && prev.id === payload.new.id ? null : prev
+              )
+            } else {
+              setDeletedMaterials((prev) =>
+                prev.filter((m) => m.id !== payload.new.id)
+              )
+              setMaterials((prev) => {
+                const exists = prev.some((m) => m.id === payload.new.id)
+                if (exists) {
+                  return prev.map((m) =>
+                    m.id === payload.new.id ? payload.new : m
+                  )
+                }
+                return [payload.new, ...prev]
+              })
+              setSelectedMaterial((prev) =>
+                prev && prev.id === payload.new.id ? payload.new : prev
+              )
+            }
           }
 
           if (payload.eventType === 'DELETE') {
-            setMaterials((prev) =>
+            setMaterials((prev) => prev.filter((m) => m.id !== payload.old.id))
+            setDeletedMaterials((prev) =>
               prev.filter((m) => m.id !== payload.old.id)
             )
-
             setSelectedMaterial((prev) =>
               prev && prev.id === payload.old.id ? null : prev
             )
@@ -365,41 +480,75 @@ function App() {
     setMaterials((prev) => prev.filter((m) => m.id !== material.id))
     setSelectedMaterial(null)
 
+    const deletedAt = new Date().toISOString()
+
+    const { error } = await supabase
+      .from('materials')
+      .update({ deleted_at: deletedAt })
+      .eq('id', material.id)
+
+    if (error) {
+      console.error('SOFT DELETE ERROR:', error)
+
+      setMaterials((prev) => {
+        if (prev.some((m) => m.id === material.id)) return prev
+        return [...prev, material]
+      })
+
+      addToast('No se pudo eliminar el material', 'error')
+      return
+    }
+
+    const deletedMaterial = { ...material, deleted_at: deletedAt }
+
+    setDeletedMaterials((prev) => {
+      if (prev.some((m) => m.id === material.id)) return prev
+      return [deletedMaterial, ...prev]
+    })
+
+    const toastId = addToast('Material enviado al historial', 'warning', async () => {
+      await restoreMaterial(deletedMaterial)
+      removeToast(toastId)
+    })
+  }
+
+  async function restoreMaterial(material) {
+    const { error } = await supabase
+      .from('materials')
+      .update({ deleted_at: null })
+      .eq('id', material.id)
+
+    if (error) {
+      console.error('RESTORE ERROR:', error)
+      addToast('No se pudo restaurar el material', 'error')
+      return
+    }
+
+    const restoredMaterial = { ...material, deleted_at: null }
+
+    setDeletedMaterials((prev) => prev.filter((m) => m.id !== material.id))
+    setMaterials((prev) => {
+      if (prev.some((m) => m.id === material.id)) return prev
+      return [restoredMaterial, ...prev]
+    })
+
+    addToast('Material restaurado', 'success')
+  }
+
+  async function deleteForever(material) {
     const { error } = await supabase
       .from('materials')
       .delete()
       .eq('id', material.id)
 
     if (error) {
-      console.error('DELETE ERROR:', error)
-
-      setMaterials((prev) => {
-        if (prev.some((m) => m.id === material.id)) return prev
-        return [...prev, material]
-      })
-
-      addToast('No se pudo eliminar en la base de datos', 'error')
+      console.error('DELETE FOREVER ERROR:', error)
+      addToast('No se pudo borrar definitivamente', 'error')
       return
     }
 
-    const toastId = addToast('Material eliminado', 'warning', async () => {
-      const { error: undoError } = await supabase
-        .from('materials')
-        .upsert(material)
-
-      if (undoError) {
-        console.error('UNDO DELETE ERROR:', undoError)
-        addToast('No se pudo deshacer la eliminación', 'error')
-        return
-      }
-
-      setMaterials((prev) => {
-        if (prev.some((m) => m.id === material.id)) return prev
-        return [...prev, material]
-      })
-
-      removeToast(toastId)
-    })
+    setDeletedMaterials((prev) => prev.filter((m) => m.id !== material.id))
+    addToast('Material borrado definitivamente', 'success')
   }
 
   async function addMaterial(type) {
@@ -412,6 +561,7 @@ function App() {
       completed: false,
       note: '',
       tags: [],
+      deleted_at: null,
     })
 
     if (error) {
@@ -498,9 +648,9 @@ function App() {
 
       addToast(`Movido a "${overMaterial.type}"`, 'success')
     } else {
-      const columnMaterials = materials
-        .filter((m) => m.type === activeMaterial.type)
-        .sort((a, b) => (a.position || 0) - (b.position || 0))
+      const columnMaterials = materials.filter(
+        (m) => m.type === activeMaterial.type
+      )
 
       const oldIndex = columnMaterials.findIndex((m) => m.id === activeId)
       const newIndex = columnMaterials.findIndex((m) => m.id === overId)
@@ -508,25 +658,13 @@ function App() {
       if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
         const reordered = arrayMove(columnMaterials, oldIndex, newIndex)
 
-        const updatedMaterials = materials.map((m) => {
-          const idx = reordered.findIndex((r) => r.id === m.id)
-          if (idx !== -1) {
-            return { ...m, position: idx }
-          }
-          return m
-        })
-
-        setMaterials(updatedMaterials)
-
-        try {
-          await Promise.all(
-            reordered.map((m, i) =>
-              supabase.from('materials').update({ position: i }).eq('id', m.id)
-            )
-          )
-        } catch (error) {
-          console.error('REORDER ERROR:', error)
-        }
+        setMaterials((prev) =>
+          prev.map((m) => {
+            const idx = reordered.findIndex((r) => r.id === m.id)
+            if (idx !== -1) return { ...m, position: idx }
+            return m
+          })
+        )
       }
     }
   }
@@ -534,13 +672,14 @@ function App() {
   async function handleClearGroup() {
     if (selectedGroup === 'Todos') {
       const previousMaterials = materials
+      const deletedAt = new Date().toISOString()
 
       setMaterials([])
 
       const { error } = await supabase
         .from('materials')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000')
+        .update({ deleted_at: deletedAt })
+        .is('deleted_at', null)
 
       if (error) {
         console.error('DELETE ALL ERROR:', error)
@@ -549,20 +688,23 @@ function App() {
         return
       }
 
-      addToast('Todos los materiales eliminados', 'warning')
+      await fetchDeletedMaterials()
+      addToast('Todos los materiales fueron enviados al historial', 'warning')
       return
     }
 
     const groupMaterials = materials.filter(
       (m) => m.group_name === selectedGroup
     )
+    const deletedAt = new Date().toISOString()
 
     setMaterials((prev) => prev.filter((m) => m.group_name !== selectedGroup))
 
     const { error } = await supabase
       .from('materials')
-      .delete()
+      .update({ deleted_at: deletedAt })
       .eq('group_name', selectedGroup)
+      .is('deleted_at', null)
 
     if (error) {
       console.error('DELETE GROUP ERROR:', error)
@@ -571,7 +713,8 @@ function App() {
       return
     }
 
-    addToast(`Grupo "${selectedGroup}" eliminado`, 'warning')
+    await fetchDeletedMaterials()
+    addToast(`Grupo "${selectedGroup}" enviado al historial`, 'warning')
   }
 
   const filteredMaterials = searchQuery.trim()
@@ -586,6 +729,20 @@ function App() {
         <div className="spinner" />
         <span>Cargando materiales...</span>
       </div>
+    )
+  }
+
+  if (isHistoryOpen) {
+    return (
+      <>
+        <HistoryView
+          deletedMaterials={deletedMaterials}
+          restoreMaterial={restoreMaterial}
+          deleteForever={deleteForever}
+          backToBoard={() => setIsHistoryOpen(false)}
+        />
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </>
     )
   }
 
@@ -615,6 +772,13 @@ function App() {
           >
             Todos
           </button>
+
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className="group-button"
+          >
+            Historial
+          </button>
         </div>
 
         <ToastContainer toasts={toasts} removeToast={removeToast} />
@@ -641,6 +805,10 @@ function App() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+
+          <button onClick={() => setIsHistoryOpen(true)} className="back-btn">
+            Historial
+          </button>
 
           <button onClick={handleClearGroup} className="clear-btn">
             Limpiar grupo
