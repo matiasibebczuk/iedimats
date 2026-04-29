@@ -43,6 +43,21 @@ function getTagColor(tag) {
   return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length]
 }
 
+function splitMaterialsByDeletedAt(rows) {
+  const active = []
+  const deleted = []
+
+  rows.forEach((material) => {
+    if (material.deleted_at) {
+      deleted.push(material)
+    } else {
+      active.push(material)
+    }
+  })
+
+  return { active, deleted }
+}
+
 let toastIdCounter = 0
 
 function useToasts() {
@@ -339,40 +354,26 @@ function App() {
     const { data, error } = await supabase
       .from('materials')
       .select('*')
-      .is('deleted_at', null)
       .order('created_at', { ascending: false })
 
     if (error) {
       console.error('FETCH ERROR:', error)
       addToast('Error al cargar materiales', 'error')
       setMaterials([])
+      setDeletedMaterials([])
       setIsLoading(false)
       return
     }
 
-    setMaterials(data || [])
+    const { active, deleted } = splitMaterialsByDeletedAt(data || [])
+
+    setMaterials(active)
+    setDeletedMaterials(deleted)
     setIsLoading(false)
-  }
-
-  async function fetchDeletedMaterials() {
-    const { data, error } = await supabase
-      .from('materials')
-      .select('*')
-      .not('deleted_at', 'is', null)
-      .order('deleted_at', { ascending: false })
-
-    if (error) {
-      console.error('FETCH HISTORY ERROR:', error)
-      addToast('Error al cargar historial', 'error')
-      return
-    }
-
-    setDeletedMaterials(data || [])
   }
 
   useEffect(() => {
     fetchMaterials()
-    fetchDeletedMaterials()
 
     const channel = supabase
       .channel('materials-realtime')
@@ -399,15 +400,19 @@ function App() {
               setMaterials((prev) =>
                 prev.filter((m) => m.id !== payload.new.id)
               )
+
               setDeletedMaterials((prev) => {
                 const exists = prev.some((m) => m.id === payload.new.id)
+
                 if (exists) {
                   return prev.map((m) =>
                     m.id === payload.new.id ? payload.new : m
                   )
                 }
+
                 return [payload.new, ...prev]
               })
+
               setSelectedMaterial((prev) =>
                 prev && prev.id === payload.new.id ? null : prev
               )
@@ -415,15 +420,19 @@ function App() {
               setDeletedMaterials((prev) =>
                 prev.filter((m) => m.id !== payload.new.id)
               )
+
               setMaterials((prev) => {
                 const exists = prev.some((m) => m.id === payload.new.id)
+
                 if (exists) {
                   return prev.map((m) =>
                     m.id === payload.new.id ? payload.new : m
                   )
                 }
+
                 return [payload.new, ...prev]
               })
+
               setSelectedMaterial((prev) =>
                 prev && prev.id === payload.new.id ? payload.new : prev
               )
@@ -670,25 +679,29 @@ function App() {
   }
 
   async function handleClearGroup() {
+    const deletedAt = new Date().toISOString()
+
     if (selectedGroup === 'Todos') {
       const previousMaterials = materials
-      const deletedAt = new Date().toISOString()
 
       setMaterials([])
+      setDeletedMaterials((prev) => [
+        ...previousMaterials.map((m) => ({ ...m, deleted_at: deletedAt })),
+        ...prev,
+      ])
 
       const { error } = await supabase
         .from('materials')
         .update({ deleted_at: deletedAt })
-        .is('deleted_at', null)
 
       if (error) {
         console.error('DELETE ALL ERROR:', error)
         setMaterials(previousMaterials)
+        await fetchMaterials()
         addToast('No se pudieron eliminar todos los materiales', 'error')
         return
       }
 
-      await fetchDeletedMaterials()
       addToast('Todos los materiales fueron enviados al historial', 'warning')
       return
     }
@@ -696,24 +709,26 @@ function App() {
     const groupMaterials = materials.filter(
       (m) => m.group_name === selectedGroup
     )
-    const deletedAt = new Date().toISOString()
 
     setMaterials((prev) => prev.filter((m) => m.group_name !== selectedGroup))
+    setDeletedMaterials((prev) => [
+      ...groupMaterials.map((m) => ({ ...m, deleted_at: deletedAt })),
+      ...prev,
+    ])
 
     const { error } = await supabase
       .from('materials')
       .update({ deleted_at: deletedAt })
       .eq('group_name', selectedGroup)
-      .is('deleted_at', null)
 
     if (error) {
       console.error('DELETE GROUP ERROR:', error)
       setMaterials((prev) => [...prev, ...groupMaterials])
+      await fetchMaterials()
       addToast(`No se pudo eliminar el grupo "${selectedGroup}"`, 'error')
       return
     }
 
-    await fetchDeletedMaterials()
     addToast(`Grupo "${selectedGroup}" enviado al historial`, 'warning')
   }
 
