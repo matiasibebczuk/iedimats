@@ -43,6 +43,16 @@ function getTagColor(tag) {
   return TAG_COLORS[Math.abs(hash) % TAG_COLORS.length]
 }
 
+function getDeletedAtValue() {
+  const now = new Date()
+  const pad = (value) => String(value).padStart(2, '0')
+
+  return [
+    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+  ].join(' ')
+}
+
 function splitMaterialsByDeletedAt(rows) {
   const active = []
   const deleted = []
@@ -490,7 +500,7 @@ function App() {
     setMaterials((prev) => prev.filter((m) => m.id !== material.id))
     setSelectedMaterial(null)
 
-    const deletedAt = new Date().toISOString()
+    const deletedAt = getDeletedAtValue()
 
     const { error } = await supabase
       .from('materials')
@@ -583,6 +593,7 @@ function App() {
       return
     }
 
+    setMaterials((prev) => [newMaterial, ...prev])
     setInputs((prev) => ({ ...prev, [type]: '' }))
     addToast('Material agregado', 'success')
   }
@@ -683,7 +694,7 @@ function App() {
   }
 
   async function handleClearGroup() {
-    const deletedAt = new Date().toISOString()
+    const deletedAt = getDeletedAtValue()
 
     if (selectedGroup === 'Todos') {
       const previousMaterials = materials
