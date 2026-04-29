@@ -361,39 +361,45 @@ function App() {
     addToast('Cambios guardados', 'success')
   }
 
-  function handleDeleteMaterial(material) {
-    const deletionKey = Date.now()
-    pendingDeletions.current[deletionKey] = material
-
+  async function handleDeleteMaterial(material) {
     setMaterials((prev) => prev.filter((m) => m.id !== material.id))
     setSelectedMaterial(null)
 
-    const toastId = addToast('Material eliminado', 'warning', () => {
-      setMaterials((prev) => [...prev, material])
-      delete pendingDeletions.current[deletionKey]
-      removeToast(toastId)
-    })
+    const { error } = await supabase
+      .from('materials')
+      .delete()
+      .eq('id', material.id)
 
-    setTimeout(async () => {
-      if (!pendingDeletions.current[deletionKey]) return
+    if (error) {
+      console.error('DELETE ERROR:', error)
 
-      const { error } = await supabase
+      setMaterials((prev) => {
+        if (prev.some((m) => m.id === material.id)) return prev
+        return [...prev, material]
+      })
+
+      addToast('No se pudo eliminar en la base de datos', 'error')
+      return
+    }
+
+    const toastId = addToast('Material eliminado', 'warning', async () => {
+      const { error: undoError } = await supabase
         .from('materials')
-        .delete()
-        .eq('id', material.id)
+        .upsert(material)
 
-      if (error) {
-        console.error('DELETE ERROR:', error)
-        setMaterials((prev) => {
-          if (prev.some((m) => m.id === material.id)) return prev
-          return [...prev, material]
-        })
-        addToast('No se pudo eliminar en la base de datos', 'error')
+      if (undoError) {
+        console.error('UNDO DELETE ERROR:', undoError)
+        addToast('No se pudo deshacer la eliminación', 'error')
+        return
       }
 
-      delete pendingDeletions.current[deletionKey]
+      setMaterials((prev) => {
+        if (prev.some((m) => m.id === material.id)) return prev
+        return [...prev, material]
+      })
+
       removeToast(toastId)
-    }, 5000)
+    })
   }
 
   async function addMaterial(type) {
@@ -525,65 +531,47 @@ function App() {
     }
   }
 
-  function handleClearGroup() {
+  async function handleClearGroup() {
     if (selectedGroup === 'Todos') {
-      const toastId = addToast(
-        'Todos los materiales eliminados',
-        'warning',
-        () => {
-          removeToast(toastId)
-        }
-      )
+      const previousMaterials = materials
 
-      setTimeout(async () => {
-        const { error } = await supabase
-          .from('materials')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000')
+      setMaterials([])
 
-        if (error) {
-          console.error('DELETE ALL ERROR:', error)
-          addToast('No se pudieron eliminar todos los materiales', 'error')
-          await fetchMaterials()
-        }
+      const { error } = await supabase
+        .from('materials')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000')
 
-        removeToast(toastId)
-      }, 0)
+      if (error) {
+        console.error('DELETE ALL ERROR:', error)
+        setMaterials(previousMaterials)
+        addToast('No se pudieron eliminar todos los materiales', 'error')
+        return
+      }
 
+      addToast('Todos los materiales eliminados', 'warning')
       return
     }
 
     const groupMaterials = materials.filter(
       (m) => m.group_name === selectedGroup
     )
-    const deletionKey = Date.now()
-    pendingDeletions.current[deletionKey] = groupMaterials
 
     setMaterials((prev) => prev.filter((m) => m.group_name !== selectedGroup))
 
-    const toastId = addToast(`Grupo "${selectedGroup}" eliminado`, 'warning', () => {
+    const { error } = await supabase
+      .from('materials')
+      .delete()
+      .eq('group_name', selectedGroup)
+
+    if (error) {
+      console.error('DELETE GROUP ERROR:', error)
       setMaterials((prev) => [...prev, ...groupMaterials])
-      delete pendingDeletions.current[deletionKey]
-      removeToast(toastId)
-    })
+      addToast(`No se pudo eliminar el grupo "${selectedGroup}"`, 'error')
+      return
+    }
 
-    setTimeout(async () => {
-      if (!pendingDeletions.current[deletionKey]) return
-
-      const { error } = await supabase
-        .from('materials')
-        .delete()
-        .eq('group_name', selectedGroup)
-
-      if (error) {
-        console.error('DELETE GROUP ERROR:', error)
-        setMaterials((prev) => [...prev, ...groupMaterials])
-        addToast(`No se pudo eliminar el grupo "${selectedGroup}"`, 'error')
-      }
-
-      delete pendingDeletions.current[deletionKey]
-      removeToast(toastId)
-    }, 5000)
+    addToast(`Grupo "${selectedGroup}" eliminado`, 'warning')
   }
 
   const filteredMaterials = searchQuery.trim()
