@@ -55,6 +55,10 @@ function splitMaterialsByDeletedAt(rows) {
     }
   })
 
+  deleted.sort((a, b) => {
+    return new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime()
+  })
+
   return { active, deleted }
 }
 
@@ -351,10 +355,7 @@ function App() {
   async function fetchMaterials() {
     setIsLoading(true)
 
-    const { data, error } = await supabase
-      .from('materials')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('materials').select('*')
 
     if (error) {
       console.error('FETCH ERROR:', error)
@@ -561,17 +562,20 @@ function App() {
   }
 
   async function addMaterial(type) {
-    if (!inputs[type].trim()) return
+    const title = inputs[type].trim()
+    if (!title) return
 
-    const { error } = await supabase.from('materials').insert({
-      title: inputs[type].trim(),
+    const newMaterial = {
+      id: crypto.randomUUID(),
+      title,
       group_name: selectedGroup === 'Todos' ? 'Sin grupo' : selectedGroup,
       type,
       completed: false,
       note: '',
       tags: [],
-      deleted_at: null,
-    })
+    }
+
+    const { error } = await supabase.from('materials').insert(newMaterial)
 
     if (error) {
       console.error('INSERT ERROR:', error)
@@ -696,7 +700,6 @@ function App() {
 
       if (error) {
         console.error('DELETE ALL ERROR:', error)
-        setMaterials(previousMaterials)
         await fetchMaterials()
         addToast('No se pudieron eliminar todos los materiales', 'error')
         return
@@ -723,7 +726,6 @@ function App() {
 
     if (error) {
       console.error('DELETE GROUP ERROR:', error)
-      setMaterials((prev) => [...prev, ...groupMaterials])
       await fetchMaterials()
       addToast(`No se pudo eliminar el grupo "${selectedGroup}"`, 'error')
       return
