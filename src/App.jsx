@@ -774,6 +774,15 @@ function App() {
   }
 
   async function handleClearGroup() {
+    const message =
+      selectedGroup === 'Todos'
+        ? '¿Seguro que querés limpiar todos los materiales? Se enviarán al historial.'
+        : `¿Seguro que querés limpiar el grupo "${selectedGroup}"? Los materiales se enviarán al historial.`
+
+    const confirmed = window.confirm(message)
+
+    if (!confirmed) return
+
     const deletedAt = getDeletedAtValue()
 
     if (selectedGroup === 'Todos') {
