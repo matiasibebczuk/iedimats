@@ -883,6 +883,7 @@ body {
 .quantity-input {
   flex: 0 0 76px !important;
   width: 76px;
+  min-width: 76px;
   text-align: center;
 }
 
@@ -907,4 +908,43 @@ body {
 
 .quantity-edit-input {
   max-width: 160px;
+}
+
+/* ===== QUANTITY MOBILE ===== */
+
+@media (max-width: 767px) {
+  .input-row {
+    flex-wrap: wrap;
+  }
+
+  .input-row input:not(.quantity-input) {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .quantity-input {
+    flex: 1 1 calc(100% - 46px) !important;
+    width: auto;
+    min-width: 0;
+  }
+
+  .input-row button {
+    flex: 0 0 40px;
+    min-width: 40px;
+  }
+
+  .material-title-text {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+  }
+
+  .quantity-chip {
+    margin-left: 0;
+  }
+
+  .quantity-edit-input {
+    max-width: 100%;
+  }
 }
