@@ -53,6 +53,19 @@ function getDeletedAtValue() {
   ].join(' ')
 }
 
+function getValidQuantity(value) {
+  const quantity = Number(value)
+
+  if (!Number.isInteger(quantity)) return null
+  if (quantity < 1 || quantity > 300) return null
+
+  return quantity
+}
+
+function getMaterialQuantity(material) {
+  return getValidQuantity(material.quantity) || 1
+}
+
 function splitMaterialsByDeletedAt(rows) {
   const active = []
   const deleted = []
@@ -126,11 +139,13 @@ function groupMaterials(materials) {
 
   materials.forEach((m) => {
     const key = (m.title || '').toLowerCase()
+    const quantity = getMaterialQuantity(m)
 
     if (!map[key]) {
-      map[key] = { ...m, count: 1, _ids: [m.id] }
+      map[key] = { ...m, count: 1, quantity, _ids: [m.id] }
     } else {
       map[key].count += 1
+      map[key].quantity += quantity
       map[key]._ids.push(m.id)
     }
   })
@@ -179,6 +194,11 @@ function SortableMaterialItem({
       >
         <span className="material-title-text">
           {material.title}
+
+          <span className="quantity-chip">
+            Cant. {getMaterialQuantity(material)}
+          </span>
+
           {isGrouped && material.count > 1 && (
             <span className="grouped-count">x{material.count}</span>
           )}
@@ -205,6 +225,8 @@ function Column({
   materials,
   inputs,
   setInputs,
+  quantities,
+  setQuantities,
   addMaterial,
   toggle,
   setSelectedMaterial,
@@ -242,6 +264,26 @@ function Column({
           }}
           placeholder="Agregar..."
         />
+
+        <input
+          className="quantity-input"
+          type="number"
+          min="1"
+          max="300"
+          value={quantities[type]}
+          onChange={(e) =>
+            setQuantities((prev) => ({
+              ...prev,
+              [type]: e.target.value,
+            }))
+          }
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') addMaterial(type)
+          }}
+          placeholder="Cant."
+          aria-label="Cantidad"
+        />
+
         <button onClick={() => addMaterial(type)}>+</button>
       </div>
 
@@ -292,7 +334,12 @@ function HistoryView({
           deletedMaterials.map((material) => (
             <div key={material.id} className="material-card">
               <div className="material-title">
-                <span className="material-title-text">{material.title}</span>
+                <span className="material-title-text">
+                  {material.title}
+                  <span className="quantity-chip">
+                    Cant. {getMaterialQuantity(material)}
+                  </span>
+                </span>
 
                 <div className="tags-row">
                   <span className="tag-chip tag-gray">
@@ -346,9 +393,16 @@ function App() {
     conseguir: '',
   })
 
+  const [quantities, setQuantities] = useState({
+    geshuer: '1',
+    hacer: '1',
+    conseguir: '1',
+  })
+
   const [selectedMaterial, setSelectedMaterial] = useState(null)
   const [note, setNote] = useState('')
   const [editTitle, setEditTitle] = useState('')
+  const [editQuantity, setEditQuantity] = useState('1')
   const [editTags, setEditTags] = useState([])
   const [newTagInput, setNewTagInput] = useState('')
 
@@ -470,6 +524,7 @@ function App() {
     if (selectedMaterial) {
       setNote(selectedMaterial.note || '')
       setEditTitle(selectedMaterial.title || '')
+      setEditQuantity(String(getMaterialQuantity(selectedMaterial)))
       setEditTags(selectedMaterial.tags || [])
       setNewTagInput('')
     }
@@ -478,11 +533,24 @@ function App() {
   async function saveChanges() {
     if (!selectedMaterial) return
 
+    const quantity = getValidQuantity(editQuantity)
+
+    if (!editTitle.trim()) {
+      addToast('El título no puede estar vacío', 'error')
+      return
+    }
+
+    if (!quantity) {
+      addToast('La cantidad debe ser entre 1 y 300', 'error')
+      return
+    }
+
     const { error } = await supabase
       .from('materials')
       .update({
         note,
-        title: editTitle,
+        title: editTitle.trim(),
+        quantity,
         tags: editTags,
       })
       .eq('id', selectedMaterial.id)
@@ -573,11 +641,22 @@ function App() {
 
   async function addMaterial(type) {
     const title = inputs[type].trim()
-    if (!title) return
+    const quantity = getValidQuantity(quantities[type])
+
+    if (!title) {
+      addToast('Escribí el nombre del material', 'error')
+      return
+    }
+
+    if (!quantity) {
+      addToast('La cantidad debe ser entre 1 y 300', 'error')
+      return
+    }
 
     const newMaterial = {
       id: crypto.randomUUID(),
       title,
+      quantity,
       group_name: selectedGroup === 'Todos' ? 'Sin grupo' : selectedGroup,
       type,
       completed: false,
@@ -595,6 +674,7 @@ function App() {
 
     setMaterials((prev) => [newMaterial, ...prev])
     setInputs((prev) => ({ ...prev, [type]: '' }))
+    setQuantities((prev) => ({ ...prev, [type]: '1' }))
     addToast('Material agregado', 'success')
   }
 
@@ -853,6 +933,8 @@ function App() {
               type={type}
               inputs={inputs}
               setInputs={setInputs}
+              quantities={quantities}
+              setQuantities={setQuantities}
               addMaterial={addMaterial}
               toggle={toggle}
               setSelectedMaterial={setSelectedMaterial}
@@ -898,6 +980,16 @@ function App() {
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               placeholder="Título..."
+            />
+
+            <input
+              className="title-input quantity-edit-input"
+              type="number"
+              min="1"
+              max="300"
+              value={editQuantity}
+              onChange={(e) => setEditQuantity(e.target.value)}
+              placeholder="Cantidad..."
             />
 
             <label className="completed-toggle">
